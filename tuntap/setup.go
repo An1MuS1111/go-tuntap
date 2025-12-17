@@ -16,11 +16,11 @@ const (
 	TUNSETIFF = 0x400454ca
 )
 
-// type ifreq struct {
-// 	Name  [IFNAMSIZ]byte
-// 	Flags uint16
-// 	_     [22]byte // padding to match kernel size
-// }
+type ifreq struct {
+	Name  [IFNAMSIZ]byte
+	Flags uint16
+	_     [22]byte // padding to match kernel size
+}
 
 /**
  * fd ‒ the fd to turn into TUN or TAP.
@@ -32,12 +32,7 @@ const (
  */
 
 func tuntapSetup(fd uintptr, name string, mode Mode, packetInfo bool) (string, error) {
-	// req := ifreq{}
-	var req struct {
-		Name  [IFNAMSIZ]byte
-		Flags uint16
-		_     [22]byte // padding to match kernel size
-	}
+	req := &ifreq{}
 
 	copy(req.Name[:], []byte(name))
 
@@ -60,7 +55,7 @@ func tuntapSetup(fd uintptr, name string, mode Mode, packetInfo bool) (string, e
 		syscall.SYS_IOCTL,
 		fd,
 		uintptr(TUNSETIFF),
-		uintptr(unsafe.Pointer(&req)),
+		uintptr(unsafe.Pointer(req)),
 	)
 	if errno != 0 {
 		return "", errno

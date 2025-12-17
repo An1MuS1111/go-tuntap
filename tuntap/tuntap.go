@@ -1,16 +1,9 @@
 package tuntap
 
-/*
-#include <stdlib.h>
-#include <string.h>
-int tuntap_setup(int fd, unsigned char *name, int mode, int packet_info);
-*/
-import "C"
-
 import (
 	"fmt"
 	"os"
-	"unsafe"
+	"syscall"
 )
 
 type Mode uint8
@@ -40,27 +33,12 @@ func withOption(ifname string, mode Mode, packetInfo bool) (*Iface, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to OPEN|CREATE %s file", fileName)
 	}
-	nameBuffer := make([]byte, len(ifname))
-	nameBuffer = append(append(nameBuffer, []byte(ifname)...), make([]byte, 33)...)
 
-	pi := 0
-	if packetInfo {
-		pi = 1
-	}
-
-	res, err := C.tuntap_setup(
-		C.int(file.Fd()),
-		(*C.uchar)(unsafe.Pointer(&nameBuffer[0])),
-		C.int(mode),
-		C.int(pi),
-	)
-
-	if res < 0 {
+	actualName, err := tuntapSetup(file.Fd(), ifname, mode, packetInfo)
+	if err != nil {
 		file.Close()
-		return nil, fmt.Errorf("tuntap_setup failed: %w", err)
+		return nil, err
 	}
-
-	actualName := C.GoString((*C.char)(unsafe.Pointer(&nameBuffer[0])))
 
 	return &Iface{
 		fd:   file,
@@ -82,4 +60,8 @@ func (i *Iface) Recv(buf []byte) (int, error) {
 }
 func (i *Iface) Send(buf []byte) (int, error) {
 	return i.fd.Write(buf)
+}
+
+func (i *Iface) SetNonBlocking(nonBlock bool) error {
+	return syscall.SetNonblock(int(i.fd.Fd()), nonBlock)
 }
